@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>YouTube Chat Test</title>
+</head>
+<body>
+
+  <button id="loginBtn">
+    Login with Google
+  </button>
+
+  <button id="sendBtn">
+    Send Test Message
+  </button>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <script>
+    const CLIENT_ID =
+      "752087174359-fvqg51i8r2r22mt59ood82gni6ls62cl.apps.googleusercontent.com";
+
+    const SCOPES =
+      "https://www.googleapis.com/auth/youtube.force-ssl";
+
+    let accessToken = "";
+
+    let tokenClient;
+
+    window.onload = () => {
+
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+
+        scope: SCOPES,
+
+        callback: (response) => {
+          accessToken = response.access_token;
+
+          console.log("ACCESS TOKEN:");
+          console.log(accessToken);
+
+          alert("Logged in!");
+        },
+      });
+
+    };
+
+    document.getElementById("loginBtn").onclick = () => {
+      tokenClient.requestAccessToken();
+    };
+
+    async function getLiveChatId(videoId) {
+
+      const response = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${videoId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      console.log(data);
+
+      return data.items[0]
+        .liveStreamingDetails
+        .activeLiveChatId;
+    }
+
+    async function sendMessage(liveChatId, message) {
+
+      const response = await fetch(
+        "https://www.googleapis.com/youtube/v3/liveChat/messages?part=snippet",
+        {
+          method: "POST",
+
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            snippet: {
+              liveChatId: liveChatId,
+              type: "textMessageEvent",
+              textMessageDetails: {
+                messageText: message,
+              },
+            },
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      console.log(data);
+    }
+
+    document.getElementById("sendBtn").onclick = async () => {
+
+      const VIDEO_ID = "PUT_VIDEO_ID_HERE";
+
+      const liveChatId =
+        await getLiveChatId(VIDEO_ID);
+
+      console.log("LIVE CHAT ID:");
+      console.log(liveChatId);
+
+      await sendMessage(
+        liveChatId,
+        "Hello from my app!"
+      );
+
+      alert("Message sent!");
+    };
+
+  </script>
+
+</body>
+</html>

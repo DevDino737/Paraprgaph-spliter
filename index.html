@@ -1,0 +1,76 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paragraph Splitter</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <header id="appHeader">
+    <h1>Paragraph Splitter</h1>
+    <div id="header-right">
+      <img id="profilePic" class="profile-pic" src="" alt="Profile" hidden>
+    </div>
+  </header>
+  <div class="textarea-container">
+    <div id="paragraphHighlight" class="paragraph-highlight" aria-hidden="true"></div>
+    <textarea id="paragraphInput" placeholder="Paste your paragraph here..."></textarea>
+  </div>
+
+  <select id="splitType">
+    <option value="char200">Every 200 Characters</option>
+  </select>
+
+  <div id="split-actions">
+    <button id="splitButton">Split Paragraph</button>
+  </div>
+
+  <section id="split-results" aria-label="Split text results">
+    <h2>Split Text</h2>
+    <div id="output"></div>
+  </section>
+
+  <section id="youtube-section" aria-label="YouTube livestream">
+    <div id="stream-control">
+      <input
+        type="text"
+        id="videoInput"
+        placeholder="Enter YouTube Video ID or URL"
+      >
+      <button id="loadStreamBtn">Load Stream</button>
+      <button id="loginBtn">Login with Google</button>
+      <span id="loginStatus" class="login-status">Not logged in</span>
+      <button id="sendAllBtn">Send All To Chat</button>
+    </div>
+
+    <div id="stream-frames">
+      <iframe
+        id="videoFrame"
+        title="YouTube livestream video"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen>
+      </iframe>
+      <iframe
+        id="chatFrame"
+        title="YouTube live chat">
+      </iframe>
+    </div>
+    <!-- Mention suggestions (appears when typing @ or using the Mention toolbar button) -->
+    <div id="mentionSuggestions" class="mention-suggestions" hidden aria-hidden="true"></div>
+  </section>
+
+  <script type="module" src="main.js"></script>
+  <div id="selectionToolbar" hidden aria-hidden="true">
+    <button data-action="send">Send</button>
+    <button data-action="mention">Mention</button>
+    <button data-action="reply">Reply</button>
+  </div>
+  <div id="toast" aria-live="polite" hidden></div>
+</body>
+</html>
