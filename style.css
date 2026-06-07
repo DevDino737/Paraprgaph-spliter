@@ -221,6 +221,7 @@ button {
   font-weight: 750;
   cursor: pointer;
   box-shadow: 0 10px 24px rgba(255, 255, 255, 0.1);
+  position: relative;
   transition:
     transform 0.18s ease,
     background-color 0.18s ease,
@@ -344,6 +345,55 @@ button:focus-visible {
   box-shadow: none;
 }
 
+#sendAllBtn.is-sending {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+#sendAllBtn.is-sending::before,
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+  content: "";
+}
+
+.sending-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.sending-indicator[hidden] {
+  display: none;
+}
+
+.sending-indicator .spinner {
+  color: #fff;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #sendAllBtn.is-sending::before,
+  .spinner {
+    animation-duration: 1.4s;
+  }
+}
+
 #loadStreamBtn:hover {
   background: #1f1f1f;
   border-color: #fff;
@@ -373,28 +423,7 @@ button:focus-visible {
   min-height: 0;
 }
 
-#mentionSuggestions {
-  position: absolute;
-  z-index: 1200;
-  min-width: 220px;
-  max-width: 420px;
-  background: var(--panel);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 8px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-  overflow: hidden;
-}
-
-.mention-item {
-  padding: 10px 12px;
-  cursor: pointer;
-  color: var(--text);
-  font-size: 0.95rem;
-}
-
-.mention-item:hover {
-  background: var(--panel-soft);
-}
+/* Mention suggestion UI styles removed */
 
 @media (max-width: 800px) {
   body {

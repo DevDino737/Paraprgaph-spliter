@@ -39,17 +39,7 @@ async function getLiveChatId(videoId) {
   return details.activeLiveChatId;
 }
 
-async function sendMessage(
-  liveChatId,
-  message,
-  replyParentId = null
-) {
-  // Note: YouTube's Live Chat API will treat a message as a "reply" if you set
-  // `snippet.replyParentId` to an existing live chat message ID. Simply including
-  // `@username` in `messageText` does NOT guarantee the platform will render
-  // the orange mention badge — that visual mention is produced by the YouTube
-  // client when it recognizes an actual reply or internal user reference.
-  // We log `replyParentId` below so you can verify whether replies are being used.
+async function sendMessage(liveChatId, message) {
   const body = {
     snippet: {
       liveChatId: liveChatId,
@@ -60,14 +50,7 @@ async function sendMessage(
     },
   };
 
-    console.log("sendMessage called. replyParentId:", replyParentId);
-    if (replyParentId) {
-      body.snippet.replyParentId = replyParentId;
-    }
-    console.log("sendMessage request body:", JSON.parse(JSON.stringify(body)));
-  if (replyParentId) {
-    body.snippet.replyParentId = replyParentId;
-  }
+  console.log("Request Body:", body);
 
   const response = await fetch(
     "https://www.googleapis.com/youtube/v3/liveChat/messages?part=snippet",
@@ -85,7 +68,7 @@ async function sendMessage(
 
   const data = await response.json();
 
-  console.log(data);
+  console.log("YouTube Response:", data);
 
   if (!response.ok) {
     throw new Error(data.error?.message || "Failed to send message to chat");
@@ -124,24 +107,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const loginStatus = document.getElementById("loginStatus");
   const profilePic = document.getElementById("profilePic");
   const sendAllBtn = document.getElementById("sendAllBtn");
+  const youtubeSendingIndicator = document.getElementById("youtubeSendingIndicator");
+  const youtubeSendingText = document.getElementById("youtubeSendingText");
   const selectionToolbar = document.getElementById("selectionToolbar");
   const videoFrame = document.getElementById("videoFrame");
   const chatFrame = document.getElementById("chatFrame");
   const toast = document.getElementById("toast");
-  const mentionSuggestionsEl = document.getElementById("mentionSuggestions");
-  const mentionBtn = selectionToolbar?.querySelector('button[data-action="mention"]');
   const MAX_CHARS = 200;
+  const SEND_ALL_DEFAULT_TEXT = sendAllBtn.textContent;
   let currentParts = [];
   let cachedSelectionText = "";
   let cachedSelectionRange = null;
-  let currentMentionHTML = "";
-  let selectedReplyParentId = null;
-  let selectedReplyAuthor = null;
+  // reply/mention features removed
   let currentVideoId = null;
   let currentLiveChatId = null;
-  let authorsList = []; // list of known chat author display names for mention suggestions
-  let authorsMap = {}; // displayName -> last message id
-  let lastChatMessageId = null; // fallback reply target if no author selection is available
+  let isSendingToYoutube = false;
+  
 
   function initGoogleTokenClient(showError = false) {
     if (tokenClient) {
@@ -212,6 +193,33 @@ document.addEventListener("DOMContentLoaded", () => {
     profilePic.hidden = false;
   }
 
+  function setYoutubeSending(isSending, message = "Sending to YouTube...") {
+    isSendingToYoutube = isSending;
+
+    if (youtubeSendingIndicator) {
+      youtubeSendingIndicator.hidden = !isSending;
+    }
+
+    if (youtubeSendingText) {
+      youtubeSendingText.textContent = message;
+    }
+
+    if (!sendAllBtn) return;
+
+    sendAllBtn.classList.toggle("is-sending", isSending);
+    sendAllBtn.setAttribute("aria-busy", String(isSending));
+
+    if (isSending) {
+      sendAllBtn.textContent = "Sending...";
+      sendAllBtn.disabled = true;
+      return;
+    }
+
+    sendAllBtn.removeAttribute("aria-busy");
+    sendAllBtn.textContent = SEND_ALL_DEFAULT_TEXT;
+    sendAllBtn.disabled = false;
+  }
+
   initGoogleTokenClient();
 
   async function updateLoginStatus() {
@@ -229,17 +237,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       loginBtn.hidden = true;
 
-      if (currentVideoId && accessToken) {
-        try {
-          currentLiveChatId = await getLiveChatId(currentVideoId);
-          if (currentLiveChatId) {
-            const msgs = await fetchRecentChatMessages(currentLiveChatId);
-            populateAuthorsFromMessages(msgs);
-          }
-        } catch (error) {
-          console.warn("Could not fetch live chat ID after login:", error);
-        }
-      }
+      // Reply/mention features removed: no fetching of recent messages for authors
     } catch (error) {
       console.warn(error);
       setLoginStatus("Logged in");
@@ -390,203 +388,19 @@ document.addEventListener("DOMContentLoaded", () => {
   paragraphInput.addEventListener("focus", updateParagraphHighlight);
   paragraphInput.addEventListener("blur", updateParagraphHighlight);
 
-  // Mention/autocomplete behavior
-  function renderMentionSuggestions(list, query) {
-    if (!mentionSuggestionsEl) return;
-    mentionSuggestionsEl.innerHTML = "";
-    if (!list || list.length === 0) {
-      mentionSuggestionsEl.hidden = true;
-      mentionSuggestionsEl.setAttribute('aria-hidden', 'true');
-      return;
-    }
+  // Mention/autocomplete behavior removed
 
-    list.forEach((name) => {
-      const item = document.createElement('div');
-      item.className = 'mention-item';
-      item.textContent = name;
-      item.addEventListener('click', (ev) => {
-        insertMentionAtCaret(name);
-        hideMentionSuggestions();
-      });
-      mentionSuggestionsEl.appendChild(item);
-    });
+  // Mention insert helper removed
 
-    mentionSuggestionsEl.hidden = false;
-    mentionSuggestionsEl.setAttribute('aria-hidden', 'false');
-  }
+  // Mention/mention-suggestions handlers removed.
 
-  function hideMentionSuggestions() {
-    if (!mentionSuggestionsEl) return;
-    mentionSuggestionsEl.hidden = true;
-    mentionSuggestionsEl.setAttribute('aria-hidden', 'true');
-    mentionSuggestionsEl.innerHTML = '';
-  }
+  // Reply functionality removed.
 
-  function insertMentionAtCaret(name) {
-    // normalize name: remove any leading @ characters to avoid duplicates
-    name = (name || '').replace(/^@+/, '');
-
-    const el = paragraphInput;
-    const start = el.selectionStart;
-    const value = el.value;
-
-    const before = value.slice(0, start);
-    const after = value.slice(start);
-
-    // find the last '@' in the token before caret
-    let lastAt = before.lastIndexOf('@');
-    if (lastAt !== -1) {
-      // if there is a run of multiple @ characters, find the start of the run
-      let runStart = lastAt;
-      while (runStart > 0 && before.charAt(runStart - 1) === '@') runStart--;
-
-      // replace from runStart up to caret with single @ + name + space
-      const newText = before.slice(0, runStart) + '@' + name + ' ';
-      el.value = newText + after;
-      const caretPos = newText.length;
-      el.focus();
-      el.setSelectionRange(caretPos, caretPos);
-      updateParagraphHighlight();
-      return;
-    }
-
-    // fallback: insert '@name ' at caret
-    const newVal = before + '@' + name + ' ' + after;
-    el.value = newVal;
-    const caret = before.length + name.length + 2;
-    el.focus();
-    el.setSelectionRange(caret, caret);
-    updateParagraphHighlight();
-  }
-
-  paragraphInput.addEventListener('input', (ev) => {
-    const el = paragraphInput;
-    const caret = el.selectionStart;
-    const before = el.value.slice(0, caret);
-    const m = before.match(/(^|\s)@([^\s@]*)$/);
-    if (m) {
-      const query = m[2].toLowerCase();
-      const filtered = authorsList.filter((n) => n.toLowerCase().includes(query)).slice(0, 8);
-      const coords = getSelectionCoordsInTextarea(paragraphInput);
-      if (mentionSuggestionsEl) {
-        mentionSuggestionsEl.style.left = (coords.x || 0) + 'px';
-        mentionSuggestionsEl.style.top = ((coords.y || 0) + 24) + 'px';
-      }
-      renderMentionSuggestions(filtered, query);
-    } else {
-      // if user typed something else, hide suggestions
-      // but keep suggestions visible if selection toolbar requested
-      hideMentionSuggestions();
-    }
-  });
-
-  // Toolbar mention button: show all authors (or a subset)
-  if (mentionBtn) {
-    mentionBtn.addEventListener('click', (ev) => {
-      ev.preventDefault();
-      // position near selection or caret
-      let coords;
-      try { coords = getSelectionCoordsInTextarea(paragraphInput); } catch (e) { coords = { x: 10, y: 10 }; }
-      if (mentionSuggestionsEl) {
-        mentionSuggestionsEl.style.left = (coords.x || 0) + 'px';
-        mentionSuggestionsEl.style.top = ((coords.y || 0) + 24) + 'px';
-      }
-      renderMentionSuggestions(authorsList.slice(0, 12), '');
-    });
-  }
-
-  function renderReplyCandidates(list) {
-    if (!mentionSuggestionsEl) return;
-    mentionSuggestionsEl.innerHTML = "";
-
-    const candidates = Array.isArray(list) ? list.slice() : [];
-    if (candidates.length === 0 && lastChatMessageId) {
-      candidates.push('[Most recent chat message]');
-    }
-
-    if (candidates.length === 0) {
-      mentionSuggestionsEl.hidden = true;
-      mentionSuggestionsEl.setAttribute('aria-hidden', 'true');
-      return;
-    }
-
-    candidates.forEach((name) => {
-      const item = document.createElement('div');
-      item.className = 'mention-item';
-      item.textContent = name.startsWith('[Most recent') ? 'Reply to most recent message' : `Reply to ${name}`;
-      item.addEventListener('click', async () => {
-        hideMentionSuggestions();
-        const messageId = name.startsWith('[Most recent') ? lastChatMessageId : authorsMap[name];
-        if (!messageId) {
-          alert('No message id available for that author. Load chat messages first.');
-          return;
-        }
-        await sendPartsAsReply(messageId);
-      });
-      mentionSuggestionsEl.appendChild(item);
-    });
-
-    mentionSuggestionsEl.hidden = false;
-    mentionSuggestionsEl.setAttribute('aria-hidden', 'false');
-  }
-
-  async function sendPartsAsReply(replyParentId) {
-    if (!accessToken) {
-      alert('Please log in with Google before sending replies.');
-      return;
-    }
-
-    const videoId = getYouTubeVideoId(videoInput.value);
-    if (!videoId) {
-      alert('Enter a YouTube video ID or URL before sending replies.');
-      return;
-    }
-
-    let liveChatId;
-    try {
-      liveChatId = await getLiveChatId(videoId);
-    } catch (error) {
-      alert(error.message || 'Unable to get live chat ID for this video.');
-      return;
-    }
-
-    let partsToSend = [];
-    const selStart = paragraphInput.selectionStart;
-    const selEnd = paragraphInput.selectionEnd;
-    if (selStart !== selEnd) {
-      const selText = paragraphInput.value.substring(selStart, selEnd).trim();
-      if (!selText) {
-        alert('Select some text or split the paragraph first.');
-        return;
-      }
-      partsToSend = splitTextTightly(selText);
-    } else if (currentParts && currentParts.length > 0) {
-      partsToSend = currentParts;
-    } else {
-      alert('Select text in the paragraph or split it first.');
-      return;
-    }
-
-    try {
-      showToast('Sending reply...');
-      console.log('sendPartsAsReply: replyParentId=', replyParentId, 'partsToSend=', partsToSend);
-      for (const part of partsToSend) {
-        await sendMessage(liveChatId, part, replyParentId);
-        await new Promise((resolve) => setTimeout(resolve, 1200));
-      }
-      showToast('Reply sent');
-    } catch (error) {
-      console.error('sendPartsAsReply error:', error);
-      showToast('Failed to send reply');
-    }
-  }
-
-  // Hide suggestions when clicking outside
+  // Global click handler: keep selection toolbar behavior but no mention UI
   document.addEventListener('click', (ev) => {
-    if (!mentionSuggestionsEl) return;
-    if (mentionSuggestionsEl.contains(ev.target)) return;
-    if (ev.target === mentionBtn) return;
-    hideMentionSuggestions();
+    if (!selectionToolbar) return;
+    if (selectionToolbar.contains(ev.target) || ev.target === paragraphInput) return;
+    hideSelectionToolbar();
   });
 
 
@@ -613,27 +427,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     currentVideoId = videoId;
     currentLiveChatId = null;
-    selectedReplyParentId = null;
-    selectedReplyAuthor = null;
 
     videoFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
     // Use the popout live_chat and include embed_domain so YouTube allows the iframe
     chatFrame.src = `https://www.youtube.com/live_chat?is_popout=1&v=${videoId}&embed_domain=${window.location.hostname}`;
 
-    // If logged in, fetch recent chat messages and populate authors
-    if (accessToken) {
-      try {
-        currentLiveChatId = await getLiveChatId(videoId);
-        if (currentLiveChatId) {
-          const msgs = await fetchRecentChatMessages(currentLiveChatId);
-          populateAuthorsFromMessages(msgs);
-        }
-      } catch (error) {
-        console.warn("Could not fetch live chat ID:", error);
-      }
-    }
-
-    hideMentionSuggestions();
+    // No reply/mention population performed
   });
 
   loginBtn.addEventListener("click", () => {
@@ -644,30 +443,14 @@ document.addEventListener("DOMContentLoaded", () => {
     tokenClient.requestAccessToken();
   });
 
-  // Populate authors list from fetched messages
-  function populateAuthorsFromMessages(messages) {
-    const set = new Map();
-    authorsMap = {};
-    lastChatMessageId = null;
-    (messages || []).forEach((msg, index) => {
-      if (index === 0 && msg.id) {
-        lastChatMessageId = msg.id;
-      }
-      const name = msg.authorDetails?.displayName?.trim();
-      if (name) {
-        // keep original display name
-        set.set(name, true);
-        // store last message id for this author (useful for replyParentId)
-        if (msg.id) authorsMap[name] = msg.id;
-      }
-    });
-    authorsList = Array.from(set.keys());
-    console.log('populateAuthorsFromMessages: authorsList=', authorsList.slice(0,20));
-    console.log('populateAuthorsFromMessages: authorsMap sample=', Object.entries(authorsMap).slice(0,10));
-    console.log('populateAuthorsFromMessages: lastChatMessageId=', lastChatMessageId);
-  }
+  // Reply/mention population removed
 
   async function sendAllToChat() {
+    if (isSendingToYoutube) {
+      showToast("Already sending to YouTube");
+      return;
+    }
+
     if (currentParts.length === 0) {
       alert("Split the paragraph first before sending messages to chat.");
       return;
@@ -688,19 +471,26 @@ document.addEventListener("DOMContentLoaded", () => {
     let liveChatId;
 
     try {
+      setYoutubeSending(true, "Preparing YouTube chat...");
       liveChatId = await getLiveChatId(videoId);
     } catch (error) {
+      setYoutubeSending(false);
       alert(error.message || "Unable to get live chat ID for this video.");
       return;
     }
 
     try {
-      console.log('sendAllToChat: selectedReplyParentId=', selectedReplyParentId, 'authorsMap sample=', Object.entries(authorsMap).slice(0,3));
-      for (const part of currentParts) {
-        await sendMessage(liveChatId, part, selectedReplyParentId);
+      console.log('sendAllToChat: sending', currentParts.length, 'messages');
+      for (const [index, part] of currentParts.entries()) {
+        setYoutubeSending(
+          true,
+          `Sending ${index + 1} of ${currentParts.length} to YouTube...`
+        );
+        await sendMessage(liveChatId, part);
         await new Promise((resolve) => setTimeout(resolve, 1200));
       }
 
+      setYoutubeSending(false);
       sendAllBtn.textContent = "Sent!";
       sendAllBtn.style.backgroundColor = "#888";
       sendAllBtn.style.color = "#fff";
@@ -713,6 +503,7 @@ document.addEventListener("DOMContentLoaded", () => {
         sendAllBtn.disabled = false;
       }, 2000);
     } catch (error) {
+      setYoutubeSending(false);
       sendAllBtn.textContent = "Failed";
       sendAllBtn.style.backgroundColor = "#d32f2f";
       sendAllBtn.style.color = "#fff";
@@ -732,6 +523,11 @@ document.addEventListener("DOMContentLoaded", () => {
   sendAllBtn.addEventListener("click", sendAllToChat);
 
   async function sendSelectionToChat() {
+    if (isSendingToYoutube) {
+      showToast("Already sending to YouTube");
+      return;
+    }
+
     const start = paragraphInput.selectionStart;
     const end = paragraphInput.selectionEnd;
     let selected = paragraphInput.value.substring(start, end).trim();
@@ -760,8 +556,10 @@ document.addEventListener("DOMContentLoaded", () => {
     let liveChatId;
 
     try {
+      setYoutubeSending(true, "Preparing YouTube chat...");
       liveChatId = await getLiveChatId(videoId);
     } catch (error) {
+      setYoutubeSending(false);
       alert(error.message || "Unable to get live chat ID for this video.");
       return;
     }
@@ -769,17 +567,23 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const partsToSend = splitTextTightly(selected);
 
-      console.log('sendSelectionToChat: selectedReplyParentId=', selectedReplyParentId, 'authorsMap sample=', Object.entries(authorsMap).slice(0,3));
+      console.log('sendSelectionToChat: sending', partsToSend.length, 'messages');
 
       showToast("Sending...");
 
-      for (const part of partsToSend) {
-        await sendMessage(liveChatId, part, selectedReplyParentId);
+      for (const [index, part] of partsToSend.entries()) {
+        setYoutubeSending(
+          true,
+          `Sending ${index + 1} of ${partsToSend.length} to YouTube...`
+        );
+        await sendMessage(liveChatId, part);
         await new Promise((resolve) => setTimeout(resolve, 1200));
       }
 
+      setYoutubeSending(false);
       showToast("Sent to chat");
     } catch (error) {
+      setYoutubeSending(false);
       showToast("Failed to send");
       console.error(error);
     }
@@ -832,24 +636,32 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!selectionToolbar) return;
     selectionToolbar.classList.remove("show");
     selectionToolbar.setAttribute("aria-hidden", "true");
-    if (selectionToolbar._hideTimeout) clearTimeout(selectionToolbar._hideTimeout);
+
+    if (selectionToolbar._hideTimeout) {
+      clearTimeout(selectionToolbar._hideTimeout);
+    }
+
     selectionToolbar._hideTimeout = setTimeout(() => {
       selectionToolbar.hidden = true;
     }, 160);
+
     cachedSelectionText = "";
     cachedSelectionRange = null;
   }
 
   function updateSelectionToolbarPosition() {
     if (!selectionToolbar || selectionToolbar.hidden) return;
+
     const s = paragraphInput.selectionStart;
     const e = paragraphInput.selectionEnd;
+
     if (s === e || document.activeElement !== paragraphInput) {
       hideSelectionToolbar();
       return;
     }
 
     const coords = getSelectionCoordsInTextarea(paragraphInput);
+
     if (coords.y < 0 || coords.y > window.innerHeight) {
       hideSelectionToolbar();
       return;
@@ -935,25 +747,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (action === "send") {
         hideSelectionToolbar();
         await sendSelectionToChat();
-        return;
-      }
-
-      if (action === "reply") {
-        hideSelectionToolbar();
-        if ((!authorsList || authorsList.length === 0) && currentVideoId && accessToken) {
-          try {
-            currentLiveChatId = await getLiveChatId(currentVideoId);
-            const msgs = await fetchRecentChatMessages(currentLiveChatId);
-            populateAuthorsFromMessages(msgs);
-          } catch (err) {
-            console.warn("Could not fetch messages for reply candidates:", err);
-          }
-        }
-        if ((!authorsList || authorsList.length === 0) && !lastChatMessageId) {
-          alert("No recent chat message found. Load the stream and log in first.");
-          return;
-        }
-        renderReplyCandidates(authorsList.length > 0 ? authorsList.slice(0, 12) : []);
         return;
       }
     });
